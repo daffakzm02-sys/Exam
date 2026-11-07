@@ -27,6 +27,14 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="Sembunyikan" />
+
+        <Button
+            android:id="@+id/btnQuit"
+            style="?android:attr/borderlessButtonStyle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Matikan"
+            android:textColor="#D32F2F" />
     </LinearLayout>
 
     <TextView
@@ -36,6 +44,13 @@
         android:text="Siap"
         android:textColor="#6750A4"
         android:textSize="13sp" />
+
+    <Button
+        android:id="@+id/btnMonitor"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:text="Mulai pantau layar" />
 
     <TextView
         android:id="@+id/answer"
