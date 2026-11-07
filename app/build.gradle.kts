@@ -13,6 +13,8 @@ android {
         targetSdk = 34
         versionCode = 1
         versionName = "0.1"
+        // Token Hugging Face ditanam saat build dari variabel lingkungan HF_TOKEN (Codemagic).
+        buildConfigField("String", "HF_TOKEN", "\"${System.getenv("HF_TOKEN") ?: ""}\"")
     }
     buildTypes {
         release { isMinifyEnabled = false }
@@ -22,6 +24,7 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
     kotlinOptions { jvmTarget = "17" }
+    buildFeatures { buildConfig = true }
 }
 
 dependencies {
