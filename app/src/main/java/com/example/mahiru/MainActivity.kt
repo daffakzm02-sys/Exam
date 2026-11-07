@@ -8,6 +8,7 @@ import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
 import android.widget.Button
+import android.widget.EditText
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
@@ -25,6 +26,23 @@ class MainActivity : AppCompatActivity() {
         findViewById<Button>(R.id.btnStart).setOnClickListener { ensurePermissionsAndStart() }
         findViewById<Button>(R.id.btnStopService).setOnClickListener {
             stopService(Intent(this, BubbleService::class.java))
+        }
+
+        val etToken = findViewById<EditText>(R.id.etToken)
+        val etText = findViewById<EditText>(R.id.etTextModel)
+        val etVision = findViewById<EditText>(R.id.etVisionModel)
+        etToken.setText(Prefs.savedToken(this))
+        etText.setText(Prefs.textModel(this))
+        etVision.setText(Prefs.visionModel(this))
+
+        findViewById<Button>(R.id.btnSave).setOnClickListener {
+            Prefs.save(
+                this,
+                etToken.text.toString(),
+                etText.text.toString(),
+                etVision.text.toString()
+            )
+            Toast.makeText(this, "Pengaturan tersimpan", Toast.LENGTH_SHORT).show()
         }
     }
 

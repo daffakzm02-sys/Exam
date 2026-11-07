@@ -13,7 +13,7 @@ import kotlin.math.abs
 
 /**
  * Menangkap layar lewat MediaProjection setiap [intervalMs] milidetik.
- * Frame diperkecil (SCALE) agar hemat memori dan nanti hemat saat dikirim ke AI.
+ * Frame diperkecil (SCALE) agar hemat memori dan hemat saat dikirim ke AI.
  * Callback dipanggil di thread latar, bukan thread utama.
  */
 class ScreenCapturer(
@@ -33,7 +33,7 @@ class ScreenCapturer(
     private val handler = Handler(thread.looper)
     private var reader: ImageReader? = null
     private var display: VirtualDisplay? = null
-    private var running = false
+    @Volatile private var running = false
     private var index = 0
     private var lastSig: IntArray? = null
     private var lastFrame: Bitmap? = null
@@ -67,6 +67,19 @@ class ScreenCapturer(
         projection.stop() // memicu onStop() di atas
     }
 
+    /**
+     * Mengambil frame saat ini juga (di luar jadwal). Callback menerima frame terbaru,
+     * atau null jika pantauan sudah berhenti. Callback dipanggil di thread latar.
+     */
+    fun captureNow(callback: (Bitmap?) -> Unit) {
+        val posted = running && handler.post {
+            val bmp = try { acquireBitmap() } catch (_: Exception) { null }
+            if (bmp != null) lastFrame = bmp
+            callback(bmp ?: lastFrame)
+        }
+        if (!posted) callback(null)
+    }
+
     private val tick = object : Runnable {
         override fun run() {
             if (!running) return
@@ -80,12 +93,21 @@ class ScreenCapturer(
     }
 
     private fun grab() {
-        val image = reader?.acquireLatestImage()
-        if (image == null) {
+        val frame = acquireBitmap()
+        if (frame == null) {
             // Tidak ada frame baru = layar tidak berubah sejak tick sebelumnya.
             lastFrame?.let { onFrame(it, false, index) }
             return
         }
+        val changed = detectChange(frame)
+        index++
+        lastFrame = frame
+        onFrame(frame, changed, index)
+    }
+
+    /** Mengembalikan frame baru, atau null jika belum ada frame baru. */
+    private fun acquireBitmap(): Bitmap? {
+        val image = reader?.acquireLatestImage() ?: return null
         try {
             val plane = image.planes[0]
             val rowPadding = plane.rowStride - plane.pixelStride * image.width
@@ -97,11 +119,7 @@ class ScreenCapturer(
             padded.copyPixelsFromBuffer(plane.buffer)
             val frame = Bitmap.createBitmap(padded, 0, 0, image.width, image.height)
             padded.recycle()
-
-            val changed = detectChange(frame)
-            index++
-            lastFrame = frame
-            onFrame(frame, changed, index)
+            return frame
         } finally {
             image.close()
         }
