@@ -52,6 +52,15 @@
         android:layout_marginTop="4dp"
         android:text="Mulai pantau layar" />
 
+    <CheckBox
+        android:id="@+id/chkScreen"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:checked="true"
+        android:text="Sertakan layar saat bertanya"
+        android:textColor="#212121"
+        android:textSize="13sp" />
+
     <TextView
         android:id="@+id/answer"
         android:layout_width="match_parent"
