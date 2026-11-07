@@ -5,6 +5,8 @@ workflows:
     instance_type: mac_mini_m2
     environment:
       java: 17
+      groups:
+        - hf_secrets   # berisi variabel rahasia HF_TOKEN
     scripts:
       - name: Build debug APK
         script: gradle assembleDebug
