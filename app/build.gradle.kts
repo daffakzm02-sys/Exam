@@ -13,8 +13,8 @@ android {
         targetSdk = 34
         versionCode = 1
         versionName = "0.1"
-        // Token Hugging Face ditanam saat build dari variabel lingkungan HF_TOKEN (Codemagic).
-        buildConfigField("String", "HF_TOKEN", "\"${System.getenv("HF_TOKEN") ?: ""}\"")
+        // API key ditanam saat build dari variabel lingkungan AI_API_KEY (atau HF_TOKEN lama) di Codemagic.
+        buildConfigField("String", "API_KEY", "\"${System.getenv("AI_API_KEY") ?: System.getenv("HF_TOKEN") ?: ""}\"")
     }
     buildTypes {
         release { isMinifyEnabled = false }
