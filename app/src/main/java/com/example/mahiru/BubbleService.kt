@@ -330,6 +330,7 @@ class BubbleService : Service() {
     private fun sendToAi(text: String, frame: Bitmap?) {
         val token = Prefs.token(this)
         val baseUrl = Prefs.baseUrl(this)
+        val extra = Prefs.extraJson(this)
         val model = if (frame != null) Prefs.visionModel(this) else Prefs.textModel(this)
         val id = ++currentRequest
 
@@ -343,7 +344,7 @@ class BubbleService : Service() {
 
         worker.execute {
             val result = try {
-                Result.success(HfClient.chat(baseUrl, token, model, SYSTEM_PROMPT, snapshot, frame))
+                Result.success(HfClient.chat(baseUrl, token, model, SYSTEM_PROMPT, snapshot, frame, extra))
             } catch (e: Exception) {
                 Result.failure(e)
             }

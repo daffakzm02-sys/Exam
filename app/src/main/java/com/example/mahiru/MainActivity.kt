@@ -32,10 +32,12 @@ class MainActivity : AppCompatActivity() {
         val etToken = findViewById<EditText>(R.id.etToken)
         val etText = findViewById<EditText>(R.id.etTextModel)
         val etVision = findViewById<EditText>(R.id.etVisionModel)
+        val etExtra = findViewById<EditText>(R.id.etExtraJson)
         etBaseUrl.setText(Prefs.baseUrl(this))
         etToken.setText(Prefs.savedToken(this))
         etText.setText(Prefs.textModel(this))
         etVision.setText(Prefs.visionModel(this))
+        etExtra.setText(Prefs.extraJson(this))
 
         findViewById<Button>(R.id.btnSave).setOnClickListener {
             Prefs.save(
@@ -43,7 +45,8 @@ class MainActivity : AppCompatActivity() {
                 etBaseUrl.text.toString(),
                 etToken.text.toString(),
                 etText.text.toString(),
-                etVision.text.toString()
+                etVision.text.toString(),
+                etExtra.text.toString()
             )
             Toast.makeText(this, "Pengaturan tersimpan", Toast.LENGTH_SHORT).show()
         }

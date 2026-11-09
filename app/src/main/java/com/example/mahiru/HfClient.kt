@@ -26,7 +26,8 @@ object HfClient {
         model: String,
         system: String,
         history: List<Msg>,
-        image: Bitmap?
+        image: Bitmap?,
+        extraJson: String = ""
     ): String {
         val messages = JSONArray()
         messages.put(JSONObject().put("role", "system").put("content", system))
@@ -45,14 +46,26 @@ object HfClient {
         }
 
         val bodyJson = JSONObject()
-            .put("model", model)
             .put("messages", messages)
             // Model "berpikir" (mis. Gemini 2.5) memakai sebagian token untuk berpikir,
             // jadi batasnya dibuat longgar agar jawaban tidak terpotong/kosong.
             .put("max_tokens", 2000)
             .put("temperature", 0.6)
+        if (model.isNotBlank()) bodyJson.put("model", model)
         if (baseUrl.contains("generativelanguage.googleapis.com")) {
             bodyJson.put("reasoning_effort", "low")
+        }
+        if (extraJson.isNotBlank()) {
+            try {
+                val extra = JSONObject(extraJson)
+                val keys = extra.keys()
+                while (keys.hasNext()) {
+                    val k = keys.next()
+                    bodyJson.put(k, extra.get(k))
+                }
+            } catch (_: Exception) {
+                throw HfException("Parameter tambahan bukan JSON yang valid. Contoh: {\"search\":true}")
+            }
         }
         val body = bodyJson.toString()
 
@@ -60,7 +73,7 @@ object HfClient {
         val conn = (URL(endpoint).openConnection() as HttpURLConnection).apply {
             requestMethod = "POST"
             connectTimeout = 15_000
-            readTimeout = 60_000
+            readTimeout = 120_000
             doOutput = true
             setRequestProperty("Authorization", "Bearer $apiKey")
             setRequestProperty("Content-Type", "application/json")
@@ -72,14 +85,28 @@ object HfClient {
             val text = stream?.bufferedReader()?.use { it.readText() } ?: ""
             if (code !in 200..299) throw HfException(friendly(code, text))
 
-            val content = JSONObject(text)
-                .getJSONArray("choices").getJSONObject(0)
-                .getJSONObject("message").optString("content", "")
+            val content = parseContent(text)
             // Sebagian model penalaran menyertakan blok <think>...</think>; buang.
             return content.replace(Regex("(?s)<think>.*?</think>"), "").trim()
         } finally {
             conn.disconnect()
         }
+    }
+
+    /** Format standar OpenAI; jika tidak ada, coba beberapa nama kolom umum. */
+    private fun parseContent(text: String): String {
+        val j = JSONObject(text)
+        val choices = j.optJSONArray("choices")
+        if (choices != null && choices.length() > 0) {
+            val msg = choices.getJSONObject(0).optJSONObject("message")
+            val c = msg?.optString("content", "").orEmpty()
+            if (c.isNotBlank()) return c
+        }
+        for (k in listOf("content", "response", "answer", "text", "output", "result")) {
+            val v = j.optString(k, "")
+            if (v.isNotBlank()) return v
+        }
+        throw HfException("Format jawaban tidak dikenali: " + text.take(200))
     }
 
     private fun toDataUrl(bmp: Bitmap): String {
