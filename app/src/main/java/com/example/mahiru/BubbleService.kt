@@ -301,7 +301,7 @@ class BubbleService : Service() {
     private fun onPrompt(text: String) {
         if (Prefs.token(this).isBlank()) {
             showAnswer(
-                "Token Hugging Face belum diisi.\n" +
+                "API key belum diisi.\n" +
                     "Buka aplikasi Mahiru, isi di bagian Pengaturan AI, lalu tekan Simpan."
             )
             return
@@ -329,6 +329,7 @@ class BubbleService : Service() {
 
     private fun sendToAi(text: String, frame: Bitmap?) {
         val token = Prefs.token(this)
+        val baseUrl = Prefs.baseUrl(this)
         val model = if (frame != null) Prefs.visionModel(this) else Prefs.textModel(this)
         val id = ++currentRequest
 
@@ -342,7 +343,7 @@ class BubbleService : Service() {
 
         worker.execute {
             val result = try {
-                Result.success(HfClient.chat(token, model, SYSTEM_PROMPT, snapshot, frame))
+                Result.success(HfClient.chat(baseUrl, token, model, SYSTEM_PROMPT, snapshot, frame))
             } catch (e: Exception) {
                 Result.failure(e)
             }

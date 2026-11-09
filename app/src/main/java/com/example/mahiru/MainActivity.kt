@@ -28,9 +28,11 @@ class MainActivity : AppCompatActivity() {
             stopService(Intent(this, BubbleService::class.java))
         }
 
+        val etBaseUrl = findViewById<EditText>(R.id.etBaseUrl)
         val etToken = findViewById<EditText>(R.id.etToken)
         val etText = findViewById<EditText>(R.id.etTextModel)
         val etVision = findViewById<EditText>(R.id.etVisionModel)
+        etBaseUrl.setText(Prefs.baseUrl(this))
         etToken.setText(Prefs.savedToken(this))
         etText.setText(Prefs.textModel(this))
         etVision.setText(Prefs.visionModel(this))
@@ -38,6 +40,7 @@ class MainActivity : AppCompatActivity() {
         findViewById<Button>(R.id.btnSave).setOnClickListener {
             Prefs.save(
                 this,
+                etBaseUrl.text.toString(),
                 etToken.text.toString(),
                 etText.text.toString(),
                 etVision.text.toString()

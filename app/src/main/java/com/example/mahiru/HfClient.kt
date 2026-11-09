@@ -10,14 +10,24 @@ import java.net.URL
 
 class HfException(message: String) : Exception(message)
 
-/** Klien sederhana untuk Hugging Face Inference Providers (chat completions, format OpenAI). */
+/**
+ * Klien sederhana untuk API bergaya OpenAI (chat/completions).
+ * Dipakai untuk Gemini (endpoint kompatibel OpenAI), OpenRouter, Hugging Face, dll.
+ * Nama kelas dipertahankan agar file lain tidak perlu diubah.
+ */
 object HfClient {
-    private const val CHAT_URL = "https://router.huggingface.co/v1/chat/completions"
 
     data class Msg(val role: String, val text: String)
 
     /** Panggilan jaringan BLOKIR: jalankan di thread latar. */
-    fun chat(token: String, model: String, system: String, history: List<Msg>, image: Bitmap?): String {
+    fun chat(
+        baseUrl: String,
+        apiKey: String,
+        model: String,
+        system: String,
+        history: List<Msg>,
+        image: Bitmap?
+    ): String {
         val messages = JSONArray()
         messages.put(JSONObject().put("role", "system").put("content", system))
         history.forEachIndexed { i, m ->
@@ -33,19 +43,26 @@ object HfClient {
                 messages.put(JSONObject().put("role", m.role).put("content", m.text))
             }
         }
-        val body = JSONObject()
+
+        val bodyJson = JSONObject()
             .put("model", model)
             .put("messages", messages)
-            .put("max_tokens", 600)
+            // Model "berpikir" (mis. Gemini 2.5) memakai sebagian token untuk berpikir,
+            // jadi batasnya dibuat longgar agar jawaban tidak terpotong/kosong.
+            .put("max_tokens", 2000)
             .put("temperature", 0.6)
-            .toString()
+        if (baseUrl.contains("generativelanguage.googleapis.com")) {
+            bodyJson.put("reasoning_effort", "low")
+        }
+        val body = bodyJson.toString()
 
-        val conn = (URL(CHAT_URL).openConnection() as HttpURLConnection).apply {
+        val endpoint = baseUrl.trim().trimEnd('/') + "/chat/completions"
+        val conn = (URL(endpoint).openConnection() as HttpURLConnection).apply {
             requestMethod = "POST"
             connectTimeout = 15_000
             readTimeout = 60_000
             doOutput = true
-            setRequestProperty("Authorization", "Bearer $token")
+            setRequestProperty("Authorization", "Bearer $apiKey")
             setRequestProperty("Content-Type", "application/json")
         }
         try {
@@ -74,17 +91,19 @@ object HfClient {
     private fun friendly(code: Int, body: String): String {
         val detail = extractMessage(body)
         return when (code) {
-            401, 403 -> "Token ditolak ($code). Periksa token Hugging Face dan pastikan punya izin inference."
-            402 -> "Kredit gratis Hugging Face habis (402). Tunggu reset kuota atau ganti model."
-            404 -> "Model tidak ditemukan atau belum tersedia untuk akunmu. Ganti nama model di Pengaturan AI."
-            429 -> "Batas permintaan tercapai (429). Tunggu sebentar lalu coba lagi."
-            400 -> "Permintaan ditolak (400). Model mungkin tidak mendukung gambar. $detail"
+            401, 403 -> "API key ditolak ($code). Periksa key-nya dan pastikan layanan API-nya aktif. $detail"
+            402 -> "Kredit/kuota API habis (402). Cek penagihan atau ganti penyedia."
+            404 -> "Model tidak ditemukan atau sudah dihentikan (404). Ganti nama model di Pengaturan AI. $detail"
+            429 -> "Batas permintaan atau kuota gratis tercapai (429). Tunggu sebentar lalu coba lagi."
+            400 -> "Permintaan ditolak (400). Model mungkin tidak mendukung gambar atau parameter ini. $detail"
             else -> "Error $code. $detail"
         }.trim()
     }
 
     private fun extractMessage(body: String): String = try {
-        val j = JSONObject(body)
+        val trimmed = body.trim()
+        // Gemini kadang membungkus error dalam array: [ { "error": {...} } ]
+        val j = if (trimmed.startsWith("[")) JSONArray(trimmed).getJSONObject(0) else JSONObject(trimmed)
         val err = j.opt("error")
         val msg = when (err) {
             is JSONObject -> err.optString("message")
