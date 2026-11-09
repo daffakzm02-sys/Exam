@@ -69,7 +69,7 @@
             android:id="@+id/etTextModel"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:hint="Model percakapan"
+            android:hint="Model percakapan (boleh kosong)"
             android:importantForAutofill="no"
             android:inputType="text" />
 
@@ -77,9 +77,17 @@
             android:id="@+id/etVisionModel"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:hint="Model untuk gambar/layar"
+            android:hint="Model untuk gambar/layar (boleh kosong)"
             android:importantForAutofill="no"
             android:inputType="text" />
+
+        <EditText
+            android:id="@+id/etExtraJson"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Parameter tambahan (JSON, opsional)"
+            android:importantForAutofill="no"
+            android:inputType="textMultiLine|textNoSuggestions" />
 
         <Button
             android:id="@+id/btnSave"
