@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.18.1)
+cmake_minimum_required(VERSION 3.22.1)
 project(stealth)
 
 set(CMAKE_CXX_STANDARD 17)
@@ -7,8 +7,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 include(FetchContent)
 FetchContent_Declare(
     xhook
-    GIT_REPOSITORY https://github.com/iqiyi/xhook.git
-    GIT_TAG v1.2.2
+    URL https://github.com/iqiyi/xhook/archive/refs/tags/v1.2.1.zip
 )
 FetchContent_MakeAvailable(xhook)
 
