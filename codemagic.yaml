@@ -6,7 +6,7 @@ workflows:
     environment:
       java: 17
       groups:
-        - hf_secrets   # berisi variabel rahasia HF_TOKEN
+        - hf_secrets   # berisi variabel rahasia AI_API_KEY
     scripts:
       - name: Build debug APK
         script: gradle assembleDebug
