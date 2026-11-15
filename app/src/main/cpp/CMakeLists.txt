@@ -7,7 +7,8 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 include(FetchContent)
 FetchContent_Declare(
     xhook
-    URL https://github.com/iqiyi/xhook/archive/refs/tags/v1.2.1.zip
+    GIT_REPOSITORY https://github.com/iqiyi/xhook.git
+    GIT_TAG master
 )
 FetchContent_MakeAvailable(xhook)
 
