@@ -10,12 +10,16 @@
 
     <application
         android:allowBackup="false"
-        android:label="Mahiru"
+        android:icon="@android:drawable/ic_menu_view"
+        android:label="UI Helper"
+        android:supportsRtl="true"
         android:theme="@style/Theme.Mahiru">
 
         <activity
             android:name=".MainActivity"
-            android:exported="true">
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:launchMode="singleTask">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -26,15 +30,28 @@
             android:name=".CaptureRequestActivity"
             android:excludeFromRecents="true"
             android:exported="false"
+            android:noHistory="true"
             android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+
+        <service
+            android:name=".UiHelperTileService"
+            android:exported="true"
+            android:icon="@android:drawable/ic_menu_view"
+            android:label="UI Helper"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
 
         <service
             android:name=".BubbleService"
             android:exported="false"
-            android:foregroundServiceType="specialUse|mediaProjection">
+            android:foregroundServiceType="specialUse|mediaProjection"
+            android:stopWithTask="false">
             <property
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
-                android:value="floating_ai_assistant_overlay" />
+                android:value="display_utility" />
         </service>
     </application>
 </manifest>
