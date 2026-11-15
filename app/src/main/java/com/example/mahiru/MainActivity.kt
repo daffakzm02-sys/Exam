@@ -1,4 +1,4 @@
-package com.example.mahiru
+package com.system.android.uih
 
 import android.Manifest
 import android.content.Intent
@@ -52,16 +52,37 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    override fun onResume() {
+        super.onResume()
+        syncButtonState()
+    }
+
+    /** Sinkronkan tombol dengan status service — kalau bubble dinyalakan/dimatikan
+     *  dari tile atau dari luar activity, tombol di sini ikut berubah. */
+    private fun syncButtonState() {
+        val running = BubbleService.isRunning
+        findViewById<Button>(R.id.btnStart).isEnabled = !running
+        findViewById<Button>(R.id.btnStopService).isEnabled = running
+    }
+
     private fun ensurePermissionsAndStart() {
         if (!Settings.canDrawOverlays(this)) {
-            Toast.makeText(this, "Izinkan \"Tampilkan di atas aplikasi lain\", lalu kembali", Toast.LENGTH_LONG).show()
+            Toast.makeText(
+                this,
+                "Izinkan \"Tampilkan di atas aplikasi lain\", lalu kembali",
+                Toast.LENGTH_LONG
+            ).show()
             startActivity(
-                Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName"))
+                Intent(
+                    Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                    Uri.parse("package:$packageName")
+                )
             )
             return
         }
         if (Build.VERSION.SDK_INT >= 33 &&
-            checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+            checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) !=
+            PackageManager.PERMISSION_GRANTED
         ) {
             notifPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
             return
@@ -70,6 +91,9 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun startBubble() {
-        ContextCompat.startForegroundService(this, Intent(this, BubbleService::class.java))
+        ContextCompat.startForegroundService(
+            this,
+            Intent(this, BubbleService::class.java)
+        )
     }
 }

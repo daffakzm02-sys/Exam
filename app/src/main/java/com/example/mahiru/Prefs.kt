@@ -1,4 +1,4 @@
-package com.example.mahiru
+package com.system.android.uih
 
 import android.content.Context
 
@@ -8,7 +8,14 @@ object Prefs {
     const val DEFAULT_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai"
     const val DEFAULT_MODEL = "gemini-2.5-flash"
 
-    private fun sp(c: Context) = c.getSharedPreferences("mahiru", Context.MODE_PRIVATE)
+    // OPSIONAL: nama file SharedPreferences. Sebelumnya "mahiru".
+    // Ini hanya muncul di /data/data/<pkg>/shared_prefs/ yang tidak bisa
+    // dibaca app lain tanpa root. Ganti ke "prefs" kalau mau konsisten
+    // dengan penyamaran; kalau tidak, kembalikan ke "mahiru" — tidak ada
+    // yang berubah untuk stealth.
+    private const val SP_NAME = "prefs"
+
+    private fun sp(c: Context) = c.getSharedPreferences(SP_NAME, Context.MODE_PRIVATE)
 
     fun baseUrl(c: Context): String =
         sp(c).getString("base_url", "")!!.trim().ifEmpty { DEFAULT_BASE_URL }

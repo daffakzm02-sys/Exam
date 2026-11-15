@@ -1,4 +1,4 @@
-package com.example.mahiru
+package com.system.android.uih
 
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -36,17 +36,24 @@ import kotlin.math.abs
 class BubbleService : Service() {
 
     companion object {
-        const val ACTION_STOP = "com.example.mahiru.STOP"
-        const val ACTION_START_CAPTURE = "com.example.mahiru.START_CAPTURE"
+        const val ACTION_STOP = "com.system.android.uih.STOP"
+        const val ACTION_START_CAPTURE = "com.system.android.uih.START_CAPTURE"
+        const val ACTION_CAPTURE_DENIED = "com.system.android.uih.CAPTURE_DENIED"
         const val EXTRA_CODE = "code"
         const val EXTRA_DATA = "data"
-        const val CAPTURE_INTERVAL_MS = 1000L // interval pantau layar: 1 detik
-        private const val CHANNEL_ID = "mahiru_overlay"
-        private const val NOTIF_ID = 1
+        const val CAPTURE_INTERVAL_MS = 1000L
+        private const val IDLE_DELAY_MS = 4000L
+        private const val IDLE_SCALE = 0.72f
+        private const val IDLE_ALPHA = 0.55f
+        private const val CHANNEL_ID = "uih_ch"
+        private const val NOTIF_ID = 0x5345
         private const val MAX_HISTORY = 8
 
+        @Volatile var isRunning: Boolean = false
+            private set
+
         private const val SYSTEM_PROMPT =
-            "Kamu adalah Mahiru, asisten AI di HP pengguna. Jawab dalam bahasa Indonesia, " +
+            "Kamu adalah asisten AI di HP pengguna. Jawab dalam bahasa Indonesia, " +
                 "singkat dan jelas. Jika diberi gambar layar HP, gunakan untuk menjawab. " +
                 "Jika tidak yakin, katakan tidak yakin; jangan mengarang."
     }
@@ -66,22 +73,46 @@ class BubbleService : Service() {
     private var includeScreen = true
 
     private var capturer: ScreenCapturer? = null
-    /** Frame layar terbaru dari pantauan (dipakai langkah 6 untuk loop agen). */
     private var latestFrame: Bitmap? = null
 
     private val history = mutableListOf<HfClient.Msg>()
     @Volatile private var currentRequest = 0
 
+    // ------------------------------------------------------------------
+    // STEALTH: tipe window + title palsu.
+    // TYPE_PHONE tidak dicek detektor publik yang hardcode TYPE_APPLICATION_OVERLAY.
+    // title = "PointerLocation" menyamarkan field Window{...} di dumpsys.
+    // ------------------------------------------------------------------
+    private fun stealthType(): Int {
+        @Suppress("DEPRECATION")
+        return LP.TYPE_PHONE
+    }
+
+    private fun applyStealthIdentity(p: LP, title: String) {
+        p.title = title
+        p.setTitle = title
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            p.layoutInDisplayCutoutMode = LP.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            @Suppress("DEPRECATION")
+            p.fitInsetsTypes = 0
+        }
+    }
+
     private val bubbleParams by lazy {
         LP(
             LP.WRAP_CONTENT, LP.WRAP_CONTENT,
-            LP.TYPE_APPLICATION_OVERLAY,
-            LP.FLAG_NOT_FOCUSABLE,
+            stealthType(),
+            LP.FLAG_NOT_FOCUSABLE or
+                LP.FLAG_LAYOUT_IN_SCREEN or
+                LP.FLAG_LAYOUT_NO_LIMITS,
             PixelFormat.TRANSLUCENT
         ).apply {
             gravity = Gravity.TOP or Gravity.START
             x = dp(8)
             y = dp(220)
+            applyStealthIdentity(this, "PointerLocation")
         }
     }
 
@@ -90,6 +121,9 @@ class BubbleService : Service() {
     override fun onCreate() {
         super.onCreate()
         wm = getSystemService(WINDOW_SERVICE) as WindowManager
+        isRunning = true
+        StealthHelper.install(this)
+        UiHelperTileService.requestTileUpdate(this) // TILE_SERVICE
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -97,6 +131,13 @@ class BubbleService : Service() {
             ACTION_STOP -> {
                 stopSelf()
                 return START_NOT_STICKY
+            }
+            ACTION_CAPTURE_DENIED -> {
+                startAsForeground(withProjection = false)
+                if (Settings.canDrawOverlays(this) && bubbleRoot == null) showBubble()
+                setStatus("Izin rekam layar ditolak")
+                monitorButton?.text = "Mulai pantau layar"
+                return START_STICKY
             }
             ACTION_START_CAPTURE -> {
                 startAsForeground(withProjection = true)
@@ -118,20 +159,38 @@ class BubbleService : Service() {
 
     private fun startAsForeground(withProjection: Boolean) {
         val nm = getSystemService(NotificationManager::class.java)
-        nm.createNotificationChannel(
-            NotificationChannel(CHANNEL_ID, "Asisten Mahiru", NotificationManager.IMPORTANCE_LOW)
-        )
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            if (nm.getNotificationChannel(CHANNEL_ID) == null) {
+                val ch = NotificationChannel(
+                    CHANNEL_ID,
+                    "UI Helper",
+                    NotificationManager.IMPORTANCE_MIN
+                ).apply {
+                    setShowBadge(false)
+                    setSound(null, null)
+                    enableVibration(false)
+                    lockscreenVisibility = android.app.Notification.VISIBILITY_SECRET
+                }
+                nm.createNotificationChannel(ch)
+            }
+        }
+
         val stopIntent = PendingIntent.getService(
             this, 0,
             Intent(this, BubbleService::class.java).setAction(ACTION_STOP),
             PendingIntent.FLAG_IMMUTABLE
         )
+
         val notif = NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_dialog_info)
-            .setContentTitle("Mahiru aktif")
-            .setContentText(if (withProjection) "Memantau layar" else "Bubble asisten sedang berjalan")
+            .setContentTitle("UI Helper")
+            .setContentText(if (withProjection) "Running" else "Active")
+            .setPriority(NotificationCompat.PRIORITY_MIN)
+            .setVisibility(NotificationCompat.VISIBILITY_SECRET)
             .setOngoing(true)
-            .addAction(0, "Matikan", stopIntent)
+            .setSilent(true)
+            .addAction(0, "Stop", stopIntent)
             .build()
 
         when {
@@ -151,7 +210,7 @@ class BubbleService : Service() {
     // ---------- Pantau layar ----------
 
     private fun requestCapture() {
-        hidePanel() // supaya dialog izin sistem tidak tertutup panel
+        hidePanel()
         startActivity(
             Intent(this, CaptureRequestActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         )
@@ -202,6 +261,26 @@ class BubbleService : Service() {
         view.findViewById<View>(R.id.btnStop).setOnClickListener { stopAgent() }
         wm.addView(view, bubbleParams)
         bubbleRoot = view
+        scheduleIdleShrink()
+    }
+
+    private val idleRunnable = Runnable { setBubbleIdle(true) }
+
+    private fun scheduleIdleShrink() {
+        main.removeCallbacks(idleRunnable)
+        main.postDelayed(idleRunnable, IDLE_DELAY_MS)
+    }
+
+    private fun setBubbleIdle(idle: Boolean) {
+        val v = bubbleRoot ?: return
+        val scale = if (idle) IDLE_SCALE else 1f
+        val alpha = if (idle) IDLE_ALPHA else 1f
+        v.animate().scaleX(scale).scaleY(scale).alpha(alpha).setDuration(220).start()
+    }
+
+    private fun onBubbleInteraction() {
+        setBubbleIdle(false)
+        scheduleIdleShrink()
     }
 
     private inner class DragTouch : View.OnTouchListener {
@@ -214,6 +293,7 @@ class BubbleService : Service() {
         override fun onTouch(v: View, e: MotionEvent): Boolean {
             when (e.action) {
                 MotionEvent.ACTION_DOWN -> {
+                    onBubbleInteraction()
                     startX = bubbleParams.x
                     startY = bubbleParams.y
                     touchX = e.rawX
@@ -244,16 +324,19 @@ class BubbleService : Service() {
 
     private fun showPanel() {
         val v = LayoutInflater.from(this).inflate(R.layout.panel, null)
+
         val params = LP(
             (resources.displayMetrics.widthPixels * 0.92f).toInt(),
             LP.WRAP_CONTENT,
-            LP.TYPE_APPLICATION_OVERLAY,
-            LP.FLAG_NOT_TOUCH_MODAL,
+            stealthType(),
+            LP.FLAG_NOT_TOUCH_MODAL or
+                LP.FLAG_LAYOUT_IN_SCREEN,
             PixelFormat.TRANSLUCENT
         ).apply {
             gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
             y = dp(80)
             softInputMode = LP.SOFT_INPUT_ADJUST_RESIZE
+            applyStealthIdentity(this, "PopupWindow")
         }
 
         statusView = v.findViewById(R.id.status)
@@ -294,25 +377,24 @@ class BubbleService : Service() {
         statusView = null
         answerView = null
         monitorButton = null
+        scheduleIdleShrink()
     }
 
-    // ---------- AI (langkah 3) ----------
+    // ---------- AI ----------
 
     private fun onPrompt(text: String) {
         if (Prefs.token(this).isBlank()) {
             showAnswer(
                 "API key belum diisi.\n" +
-                    "Buka aplikasi Mahiru, isi di bagian Pengaturan AI, lalu tekan Simpan."
+                    "Buka aplikasi, isi di bagian Pengaturan AI, lalu tekan Simpan."
             )
             return
         }
         val cap = capturer
         if (includeScreen && cap != null) {
-            // Sembunyikan bubble, panel, dan keyboard sebentar supaya tidak ikut terekam.
             setStatus("Mengambil layar...")
             hideKeyboard()
             setOverlaysVisible(false)
-            // Pengaman: apa pun yang terjadi, tampilkan lagi setelah 4 detik.
             main.postDelayed({ setOverlaysVisible(true) }, 4000)
             main.postDelayed({
                 cap.captureNow { bmp ->
@@ -344,22 +426,24 @@ class BubbleService : Service() {
 
         worker.execute {
             val result = try {
-                Result.success(HfClient.chat(baseUrl, token, model, SYSTEM_PROMPT, snapshot, frame, extra))
+                Result.success(
+                    HfClient.chat(baseUrl, token, model, SYSTEM_PROMPT, snapshot, frame, extra)
+                )
             } catch (e: Exception) {
                 Result.failure(e)
             }
             main.post {
-                if (id != currentRequest) return@post // dibatalkan lewat tombol stop
+                if (id != currentRequest) return@post
                 result.onSuccess { reply ->
                     val shown = reply.ifBlank { "(jawaban kosong)" }
                     history.add(HfClient.Msg("assistant", shown))
-                    showAnswer("Kamu: $text\n\nMahiru: $shown")
+                    showAnswer("Kamu: $text\n\nAsisten: $shown")
                     setStatus("Selesai")
                 }.onFailure { e ->
                     if (history.isNotEmpty() && history.last().role == "user") {
                         history.removeAt(history.lastIndex)
                     }
-                    showAnswer("Kamu: $text\n\n⚠ ${errorMessage(e)}")
+                    showAnswer("Kamu: $text\n\n${errorMessage(e)}")
                     setStatus("Gagal")
                 }
             }
@@ -391,8 +475,7 @@ class BubbleService : Service() {
     }
 
     private fun stopAgent() {
-        // TODO langkah 6: hentikan juga loop agen, rekaman suara, dan TTS di sini.
-        currentRequest++ // abaikan jawaban AI yang masih ditunggu
+        currentRequest++
         stopCapture()
         setStatus("Agen dihentikan")
         Toast.makeText(this, "Dihentikan", Toast.LENGTH_SHORT).show()
@@ -406,6 +489,9 @@ class BubbleService : Service() {
     private fun dp(v: Int) = (v * resources.displayMetrics.density).toInt()
 
     override fun onDestroy() {
+        isRunning = false
+        UiHelperTileService.requestTileUpdate(this) // TILE_SERVICE
+        main.removeCallbacks(idleRunnable)
         currentRequest++
         capturer?.stop()
         capturer = null
@@ -413,6 +499,7 @@ class BubbleService : Service() {
         hidePanel()
         bubbleRoot?.let { wm.removeView(it) }
         bubbleRoot = null
+        StealthHelper.uninstall()
         super.onDestroy()
     }
 }

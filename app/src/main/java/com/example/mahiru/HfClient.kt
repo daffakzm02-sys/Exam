@@ -1,4 +1,4 @@
-package com.example.mahiru
+package com.system.android.uih
 
 import android.graphics.Bitmap
 import android.util.Base64
