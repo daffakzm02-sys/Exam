@@ -8,7 +8,8 @@ include(FetchContent)
 FetchContent_Declare(
     xhook
     GIT_REPOSITORY https://github.com/iqiyi/xhook.git
-    GIT_TAG master
+    GIT_TAG e6b2e11
+    GIT_SHALLOW TRUE
 )
 FetchContent_MakeAvailable(xhook)
 
