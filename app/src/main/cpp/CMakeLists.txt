@@ -13,12 +13,13 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(xhook)
 
-# Gabungkan stealth.cpp DAN semua file .c dari xhook langsung ke dalam libstealth.so
+# Ambil SEMUA file .c di folder jni xhook
+file(GLOB XHOOK_SOURCES "${xhook_SOURCE_DIR}/libxhook/jni/*.c")
+
+# Gabungkan stealth.cpp DAN semua file .c xhook ke dalam libstealth.so
 add_library(stealth SHARED
     stealth.cpp
-    ${xhook_SOURCE_DIR}/libxhook/jni/xh_core.c
-    ${xhook_SOURCE_DIR}/libxhook/jni/xh_elf.c
-    ${xhook_SOURCE_DIR}/libxhook/jni/xh_jni.c
+    ${XHOOK_SOURCES}
 )
 
 # Arahkan ke folder header yang benar
