@@ -13,17 +13,16 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(xhook)
 
-add_library(stealth SHARED stealth.cpp)
-
-# Perbaikan: header xhook ada di libxhook/jni
-target_include_directories(stealth PRIVATE ${xhook_SOURCE_DIR}/libxhook/jni)
-
-# xHook tidak punya CMakeLists.txt sendiri, jadi kita compile langsung file .c-nya
-add_library(xhook STATIC
+# Gabungkan stealth.cpp DAN semua file .c dari xhook langsung ke dalam libstealth.so
+add_library(stealth SHARED
+    stealth.cpp
     ${xhook_SOURCE_DIR}/libxhook/jni/xh_core.c
     ${xhook_SOURCE_DIR}/libxhook/jni/xh_elf.c
     ${xhook_SOURCE_DIR}/libxhook/jni/xh_jni.c
 )
-target_include_directories(xhook PRIVATE ${xhook_SOURCE_DIR}/libxhook/jni)
 
-target_link_libraries(stealth xhook log android)
+# Arahkan ke folder header yang benar
+target_include_directories(stealth PRIVATE ${xhook_SOURCE_DIR}/libxhook/jni)
+
+# Hanya butuh log dan android
+target_link_libraries(stealth log android)

@@ -8,7 +8,7 @@
 #include <cstring>
 #include <string>
 
-// PERBAIKAN: Bungkus header C dengan extern "C" agar linker C++ bisa menemukannya
+// WAJIB: Bungkus header C dengan extern "C"
 extern "C" {
     #include <xhook.h>
 }
