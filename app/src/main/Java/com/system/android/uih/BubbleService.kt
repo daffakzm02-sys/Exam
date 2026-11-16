@@ -89,15 +89,15 @@ class BubbleService : Service() {
     }
 
     private fun applyStealthIdentity(p: LP, title: String) {
-        p.title = title
-        p.setTitle = title
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-            p.layoutInDisplayCutoutMode = LP.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
-        }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            @Suppress("DEPRECATION")
-            p.fitInsetsTypes = 0
-        }
+          p.title = title
+    // p.setTitle = title  <--- BARIS INI SUDAH DIHAPUS
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+        p.layoutInDisplayCutoutMode = LP.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
+    }
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+        @Suppress("DEPRECATION")
+        p.fitInsetsTypes = 0
+       }
     }
 
     private val bubbleParams by lazy {
