@@ -3,6 +3,8 @@
 #include <android/log.h>
 #include <fcntl.h>
 #include <stdarg.h>
+#include <unistd.h>
+#include <stdlib.h>
 #include <cstdio>
 #include <cstring>
 #include <string>
