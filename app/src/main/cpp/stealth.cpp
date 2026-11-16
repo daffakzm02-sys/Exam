@@ -1,5 +1,4 @@
 #include <jni.h>
-#include <xhook.h>
 #include <android/log.h>
 #include <fcntl.h>
 #include <stdarg.h>
@@ -8,6 +7,11 @@
 #include <cstdio>
 #include <cstring>
 #include <string>
+
+// PERBAIKAN: Bungkus header C dengan extern "C" agar linker C++ bisa menemukannya
+extern "C" {
+    #include <xhook.h>
+}
 
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO, "Stealth", __VA_ARGS__)
 
