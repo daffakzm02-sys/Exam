@@ -83,10 +83,14 @@ class BubbleService : Service() {
     // TYPE_PHONE tidak dicek detektor publik yang hardcode TYPE_APPLICATION_OVERLAY.
     // title = "PointerLocation" menyamarkan field Window{...} di dumpsys.
     // ------------------------------------------------------------------
-    private fun stealthType(): Int {
+private fun stealthType(): Int {
+    return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        LP.TYPE_APPLICATION_OVERLAY
+    } else {
         @Suppress("DEPRECATION")
-        return LP.TYPE_PHONE
+        LP.TYPE_PHONE
     }
+}
 
     private fun applyStealthIdentity(p: LP, title: String) {
           p.title = title
@@ -118,13 +122,20 @@ class BubbleService : Service() {
 
     override fun onBind(intent: Intent?): IBinder? = null
 
-    override fun onCreate() {
-        super.onCreate()
-        wm = getSystemService(WINDOW_SERVICE) as WindowManager
-        isRunning = true
+override fun onCreate() {
+    super.onCreate()
+    wm = getSystemService(WINDOW_SERVICE) as WindowManager
+    isRunning = true
+    
+    // Pengaman: kalau native hook gagal, app tidak crash
+    try {
         StealthHelper.install(this)
-        UiHelperTileService.requestTileUpdate(this) // TILE_SERVICE
+    } catch (e: Throwable) {
+        // Abaikan error native, bubble tetap jalan
     }
+    
+    UiHelperTileService.requestTileUpdate(this)
+}
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
