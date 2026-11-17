@@ -1,31 +1,23 @@
 package com.system.android.uih
 
-import android.Manifest
 import android.content.Intent
-import android.content.pm.PackageManager
-import android.net.Uri
-import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
 import android.widget.Button
 import android.widget.EditText
 import android.widget.Toast
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.content.ContextCompat
 
 class MainActivity : AppCompatActivity() {
-
-    private val notifPermission =
-        registerForActivityResult(ActivityResultContracts.RequestPermission()) { startBubble() }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        findViewById<Button>(R.id.btnStart).setOnClickListener { ensurePermissionsAndStart() }
+        findViewById<Button>(R.id.btnStart).setOnClickListener { ensureAccessibility() }
         findViewById<Button>(R.id.btnStopService).setOnClickListener {
-            stopService(Intent(this, BubbleService::class.java))
+            // Mematikan service aksesibilitas lewat pengaturan (karena tidak bisa dimatikan paksa oleh app biasa)
+            startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
         }
 
         val etBaseUrl = findViewById<EditText>(R.id.etBaseUrl)
@@ -57,43 +49,28 @@ class MainActivity : AppCompatActivity() {
         syncButtonState()
     }
 
-    /** Sinkronkan tombol dengan status service — kalau bubble dinyalakan/dimatikan
-     *  dari tile atau dari luar activity, tombol di sini ikut berubah. */
     private fun syncButtonState() {
-        val running = BubbleService.isRunning
-        findViewById<Button>(R.id.btnStart).isEnabled = !running
-        findViewById<Button>(R.id.btnStopService).isEnabled = running
+        val isEnabled = isAccessibilityServiceEnabled()
+        findViewById<Button>(R.id.btnStart).isEnabled = !isEnabled
+        findViewById<Button>(R.id.btnStopService).isEnabled = isEnabled
     }
 
-    private fun ensurePermissionsAndStart() {
-        if (!Settings.canDrawOverlays(this)) {
-            Toast.makeText(
-                this,
-                "Izinkan \"Tampilkan di atas aplikasi lain\", lalu kembali",
-                Toast.LENGTH_LONG
-            ).show()
-            startActivity(
-                Intent(
-                    Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                    Uri.parse("package:$packageName")
-                )
-            )
-            return
+    private fun ensureAccessibility() {
+        if (!isAccessibilityServiceEnabled()) {
+            Toast.makeText(this, "Aktifkan 'UI Helper' di menu Aksesibilitas", Toast.LENGTH_LONG).show()
+            startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+        } else {
+            Toast.makeText(this, "Layanan Aksesibilitas sudah aktif", Toast.LENGTH_SHORT).show()
+            finish()
         }
-        if (Build.VERSION.SDK_INT >= 33 &&
-            checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) !=
-            PackageManager.PERMISSION_GRANTED
-        ) {
-            notifPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
-            return
-        }
-        startBubble()
     }
 
-    private fun startBubble() {
-        ContextCompat.startForegroundService(
-            this,
-            Intent(this, BubbleService::class.java)
-        )
+    private fun isAccessibilityServiceEnabled(): Boolean {
+        val service = packageName + "/" + OverlayAccessibilityService::class.java.name
+        val enabledServices = Settings.Secure.getString(
+            contentResolver,
+            Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
+        ) ?: return false
+        return enabledServices.split(":").any { it.equals(service, ignoreCase = true) }
     }
 }
