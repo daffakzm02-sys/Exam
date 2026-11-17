@@ -5,5 +5,5 @@
     android:accessibilityFlags="flagDefault"
     android:canRetrieveWindowContent="true"
     android:canTakeScreenshot="true"
-    android:description="UI Helper"
+    android:description="@string/accessibility_desc"
     android:notificationTimeout="100" />
