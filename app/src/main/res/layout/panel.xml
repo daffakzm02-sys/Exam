@@ -16,7 +16,7 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="Mahiru"
+            android:text="Asisten"
             android:textColor="#212121"
             android:textSize="16sp"
             android:textStyle="bold" />
@@ -50,7 +50,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginTop="4dp"
-        android:text="Mulai pantau layar" />
+        android:text="Tutup Panel" />
 
     <CheckBox
         android:id="@+id/chkScreen"
