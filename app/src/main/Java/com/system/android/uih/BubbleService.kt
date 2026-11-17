@@ -45,7 +45,9 @@ class BubbleService : Service() {
         private const val IDLE_DELAY_MS = 4000L
         private const val IDLE_SCALE = 0.72f
         private const val IDLE_ALPHA = 0.55f
-        private const val CHANNEL_ID = "uih_ch"
+        
+        // PENYAMARAN
+        private const val CHANNEL_ID = "system_channel"
         private const val NOTIF_ID = 0x5345
         private const val MAX_HISTORY = 8
 
@@ -64,6 +66,7 @@ class BubbleService : Service() {
 
     private var bubbleRoot: View? = null
     private var panelRoot: View? = null
+    private var panelParams: LP? = null 
     private var statusView: TextView? = null
     private var answerView: TextView? = null
     private var monitorButton: Button? = null
@@ -78,30 +81,24 @@ class BubbleService : Service() {
     private val history = mutableListOf<HfClient.Msg>()
     @Volatile private var currentRequest = 0
 
-    // ------------------------------------------------------------------
-    // STEALTH: tipe window + title palsu.
-    // TYPE_PHONE tidak dicek detektor publik yang hardcode TYPE_APPLICATION_OVERLAY.
-    // title = "PointerLocation" menyamarkan field Window{...} di dumpsys.
-    // ------------------------------------------------------------------
-private fun stealthType(): Int {
-    return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-        LP.TYPE_APPLICATION_OVERLAY
-    } else {
-        @Suppress("DEPRECATION")
-        LP.TYPE_PHONE
+    private fun stealthType(): Int {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            LP.TYPE_APPLICATION_OVERLAY
+        } else {
+            @Suppress("DEPRECATION")
+            LP.TYPE_PHONE
+        }
     }
-}
 
     private fun applyStealthIdentity(p: LP, title: String) {
-          p.title = title
-    // p.setTitle = title  <--- BARIS INI SUDAH DIHAPUS
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-        p.layoutInDisplayCutoutMode = LP.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
-    }
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-        @Suppress("DEPRECATION")
-        p.fitInsetsTypes = 0
-       }
+        p.title = title
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            p.layoutInDisplayCutoutMode = LP.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            @Suppress("DEPRECATION")
+            p.fitInsetsTypes = 0
+        }
     }
 
     private val bubbleParams by lazy {
@@ -122,20 +119,19 @@ private fun stealthType(): Int {
 
     override fun onBind(intent: Intent?): IBinder? = null
 
-override fun onCreate() {
-    super.onCreate()
-    wm = getSystemService(WINDOW_SERVICE) as WindowManager
-    isRunning = true
-    
-    // Pengaman: kalau native hook gagal, app tidak crash
-    try {
-        StealthHelper.install(this)
-    } catch (e: Throwable) {
-        // Abaikan error native, bubble tetap jalan
+    override fun onCreate() {
+        super.onCreate()
+        wm = getSystemService(WINDOW_SERVICE) as WindowManager
+        isRunning = true
+        
+        try {
+            StealthHelper.install(this)
+        } catch (e: Throwable) {
+            // Abaikan error native
+        }
+        
+        UiHelperTileService.requestTileUpdate(this)
     }
-    
-    UiHelperTileService.requestTileUpdate(this)
-}
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
@@ -166,8 +162,6 @@ override fun onCreate() {
         return START_STICKY
     }
 
-    // ---------- Foreground notification ----------
-
     private fun startAsForeground(withProjection: Boolean) {
         val nm = getSystemService(NotificationManager::class.java)
 
@@ -175,7 +169,7 @@ override fun onCreate() {
             if (nm.getNotificationChannel(CHANNEL_ID) == null) {
                 val ch = NotificationChannel(
                     CHANNEL_ID,
-                    "UI Helper",
+                    "System Service",
                     NotificationManager.IMPORTANCE_MIN
                 ).apply {
                     setShowBadge(false)
@@ -195,7 +189,7 @@ override fun onCreate() {
 
         val notif = NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_dialog_info)
-            .setContentTitle("UI Helper")
+            .setContentTitle("System Service")
             .setContentText(if (withProjection) "Running" else "Active")
             .setPriority(NotificationCompat.PRIORITY_MIN)
             .setVisibility(NotificationCompat.VISIBILITY_SECRET)
@@ -217,8 +211,6 @@ override fun onCreate() {
             else -> startForeground(NOTIF_ID, notif)
         }
     }
-
-    // ---------- Pantau layar ----------
 
     private fun requestCapture() {
         hidePanel()
@@ -263,8 +255,6 @@ override fun onCreate() {
         monitorButton?.text = "Mulai pantau layar"
         setStatus("Pantau layar dihentikan")
     }
-
-    // ---------- Bubble ----------
 
     private fun showBubble() {
         val view = LayoutInflater.from(this).inflate(R.layout.bubble, null)
@@ -327,8 +317,6 @@ override fun onCreate() {
         }
     }
 
-    // ---------- Prompt panel (show / hide) ----------
-
     private fun togglePanel() {
         if (panelRoot == null) showPanel() else hidePanel()
     }
@@ -341,7 +329,8 @@ override fun onCreate() {
             LP.WRAP_CONTENT,
             stealthType(),
             LP.FLAG_NOT_TOUCH_MODAL or
-                LP.FLAG_LAYOUT_IN_SCREEN,
+                LP.FLAG_LAYOUT_IN_SCREEN or
+                LP.FLAG_NOT_FOCUSABLE, // <--- KUNCI STEALTH
             PixelFormat.TRANSLUCENT
         ).apply {
             gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
@@ -349,6 +338,8 @@ override fun onCreate() {
             softInputMode = LP.SOFT_INPUT_ADJUST_RESIZE
             applyStealthIdentity(this, "PopupWindow")
         }
+
+        panelParams = params
 
         statusView = v.findViewById(R.id.status)
         answerView = v.findViewById<TextView>(R.id.answer).also {
@@ -365,13 +356,31 @@ override fun onCreate() {
         }
 
         val input = v.findViewById<EditText>(R.id.input)
+
+        input.setOnClickListener {
+            panelParams?.let { p ->
+                p.flags = p.flags and LP.FLAG_NOT_FOCUSABLE.inv()
+                wm.updateViewLayout(v, p)
+                v.requestFocus()
+                input.requestFocus()
+                val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
+                imm.showSoftInput(input, InputMethodManager.SHOW_IMPLICIT)
+            }
+        }
+
         v.findViewById<Button>(R.id.btnSend).setOnClickListener {
             val text = input.text.toString().trim()
             if (text.isNotEmpty()) {
                 input.text.clear()
+                hideKeyboard()
+                panelParams?.let { p ->
+                    p.flags = p.flags or LP.FLAG_NOT_FOCUSABLE
+                    wm.updateViewLayout(v, p)
+                }
                 onPrompt(text)
             }
         }
+        
         v.findViewById<Button>(R.id.btnHide).setOnClickListener { hidePanel() }
         v.findViewById<Button>(R.id.btnQuit).setOnClickListener { stopSelf() }
         monitorButton?.setOnClickListener {
@@ -383,15 +392,15 @@ override fun onCreate() {
     }
 
     private fun hidePanel() {
+        hideKeyboard()
         panelRoot?.let { wm.removeView(it) }
         panelRoot = null
+        panelParams = null
         statusView = null
         answerView = null
         monitorButton = null
         scheduleIdleShrink()
     }
-
-    // ---------- AI ----------
 
     private fun onPrompt(text: String) {
         if (Prefs.token(this).isBlank()) {
@@ -482,6 +491,7 @@ override fun onCreate() {
         panelRoot?.let {
             val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
             imm.hideSoftInputFromWindow(it.windowToken, 0)
+            it.clearFocus()
         }
     }
 
@@ -499,18 +509,44 @@ override fun onCreate() {
 
     private fun dp(v: Int) = (v * resources.displayMetrics.density).toInt()
 
+    // --- PERBAIKAN ONTASKREMOVED & ONDESTROY ---
+
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        super.onTaskRemoved(rootIntent)
+        // Biarkan service tetap jalan
+    }
+
     override fun onDestroy() {
         isRunning = false
-        UiHelperTileService.requestTileUpdate(this) // TILE_SERVICE
-        main.removeCallbacks(idleRunnable)
-        currentRequest++
-        capturer?.stop()
+        
+        try { capturer?.stop() } catch (_: Throwable) {}
         capturer = null
-        worker.shutdownNow()
-        hidePanel()
-        bubbleRoot?.let { wm.removeView(it) }
+        
+        currentRequest++
+        
+        try { worker.shutdownNow() } catch (_: Throwable) {}
+        
+        main.removeCallbacksAndMessages(null)
+        
+        try {
+            panelRoot?.let { 
+                if (it.isAttachedToWindow) wm.removeViewImmediate(it) 
+            }
+        } catch (_: Throwable) {}
+        panelRoot = null
+        panelParams = null
+        
+        try {
+            bubbleRoot?.let { 
+                if (it.isAttachedToWindow) wm.removeViewImmediate(it) 
+            }
+        } catch (_: Throwable) {}
         bubbleRoot = null
-        StealthHelper.uninstall()
+        
+        try { StealthHelper.uninstall() } catch (_: Throwable) {}
+        
+        try { UiHelperTileService.requestTileUpdate(this) } catch (_: Throwable) {}
+
         super.onDestroy()
     }
 }
