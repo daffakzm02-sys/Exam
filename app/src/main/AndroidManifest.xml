@@ -1,12 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.INTERNET" />
-    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
-    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <application
         android:allowBackup="false"
@@ -14,7 +10,8 @@
         android:label="UI Helper"
         android:supportsRtl="true"
         android:theme="@style/Theme.Mahiru"
-        android:directBootAware="true"> 
+        android:directBootAware="true" 
+        tools:targetApi="34">
 
         <activity
             android:name=".MainActivity"
@@ -27,12 +24,18 @@
             </intent-filter>
         </activity>
 
-        <activity
-            android:name=".CaptureRequestActivity"
-            android:excludeFromRecents="true"
-            android:exported="false"
-            android:noHistory="true"
-            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+        <!-- HANYA ADA SATU SERVICE UTAMA -->
+        <service
+            android:name=".OverlayAccessibilityService"
+            android:exported="true"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/accessibility_service_config" />
+        </service>
 
         <service
             android:name=".UiHelperTileService"
@@ -45,14 +48,5 @@
             </intent-filter>
         </service>
 
-        <service
-            android:name=".BubbleService"
-            android:exported="false"
-            android:foregroundServiceType="specialUse|mediaProjection"
-            android:stopWithTask="false">
-            <property
-                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
-                android:value="display_utility" />
-        </service>
     </application>
 </manifest>
