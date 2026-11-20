@@ -6,12 +6,12 @@
     android:orientation="vertical"
     android:padding="12dp">
 
+    <!-- Header (Sembunyikan & Matikan) -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:gravity="center_vertical"
         android:orientation="horizontal">
-
         <TextView
             android:layout_width="0dp"
             android:layout_height="wrap_content"
@@ -20,14 +20,12 @@
             android:textColor="#212121"
             android:textSize="16sp"
             android:textStyle="bold" />
-
         <Button
             android:id="@+id/btnHide"
             style="?android:attr/borderlessButtonStyle"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="Sembunyikan" />
-
         <Button
             android:id="@+id/btnQuit"
             style="?android:attr/borderlessButtonStyle"
@@ -94,5 +92,65 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="Kirim" />
+    </LinearLayout>
+
+    <!-- KEYBOARD KUSTOM (Default disembunyikan) -->
+    <LinearLayout
+        android:id="@+id/keyboardContainer"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:orientation="vertical"
+        android:visibility="gone"
+        android:background="#E0E0E0"
+        android:padding="4dp">
+        
+        <!-- Baris 1 -->
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
+            <Button android:id="@+id/key_q" android:layout_width="0dp" android:layout_height="40dp" android:layout_weight="1" android:text="q" android:textSize="12sp" android:padding="0dp" android:minWidth="0dp"/>
+            <Button android:id="@+id/key_w" android:layout_width="0dp" android:layout_height="40dp" android:layout_weight="1" android:text="w" android:textSize="12sp" android:padding="0dp" android:minWidth="0dp"/>
+            <Button android:id="@+id/key_e" android:layout_width="0dp" android:layout_height="40dp" android:layout_weight="1" android:text="e" android:textSize="12sp" android:padding="0dp" android:minWidth="0dp"/>
+            <Button android:id="@+id/key_r" android:layout_width="0dp" android:layout_height="40dp" android:layout_weight="1" android:text="r" android:textSize="12sp" android:padding="0dp" android:minWidth="0dp"/>
+            <Button android:id="@+id/key_t" android:layout_width="0dp" android:layout_height="40dp" android:layout_weight="1" android:text="t" android:textSize="12sp" android:padding="0dp" android:minWidth="0dp"/>
+            <Button android:id="@+id/key_y" android:layout_width="0dp" android:layout_height="40dp" android:layout_weight="1" android:text="y" android:textSize="12sp" android:padding="0dp" android:minWidth="0dp"/>
+            <Button android:id="@+id/key_u" android:layout_width="0dp" android:layout_height="40dp" android:layout_weight="1" android:text="u" android:textSize="12sp" android:padding="0dp" android:minWidth="0dp"/>
+            <Button android:id="@+id/key_i" android:layout_width="0dp" android:layout_height="40dp" android:layout_weight="1" android:text="i" android:textSize="12sp" android:padding="0dp" android:minWidth="0dp"/>
+            <Button android:id="@+id/key_o" android:layout_width="0dp" android:layout_height="40dp" android:layout_weight="1" android:text="o" android:textSize="12sp" android:padding="0dp" android:minWidth="0dp"/>
+            <Button android:id="@+id/key_p" android:layout_width="0dp" android:layout_height="40dp" android:layout_weight="1" android:text="p" android:textSize="12sp" android:padding="0dp" android:minWidth="0dp"/>
+        </LinearLayout>
+
+        <!-- Baris 2 -->
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
+            <Button android:id="@+id/key_a" android:layout_width="0dp" android:layout_height="40dp" android:layout_weight="1" android:text="a" android:textSize="12sp" android:padding="0dp" android:minWidth="0dp"/>
+            <Button android:id="@+id/key_s" android:layout_width="0dp" android:layout_height="40dp" android:layout_weight="1" android:text="s" android:textSize="12sp" android:padding="0dp" android:minWidth="0dp"/>
+            <Button android:id="@+id/key_d" android:layout_width="0dp" android:layout_height="40dp" android:layout_weight="1" android:text="d" android:textSize="12sp" android:padding="0dp" android:minWidth="0dp"/>
+            <Button android:id="@+id/key_f" android:layout_width="0dp" android:layout_height="40dp" android:layout_weight="1" android:text="f" android:textSize="12sp" android:padding="0dp" android:minWidth="0dp"/>
+            <Button android:id="@+id/key_g" android:layout_width="0dp" android:layout_height="40dp" android:layout_weight="1" android:text="g" android:textSize="12sp" android:padding="0dp" android:minWidth="0dp"/>
+            <Button android:id="@+id/key_h" android:layout_width="0dp" android:layout_height="40dp" android:layout_weight="1" android:text="h" android:textSize="12sp" android:padding="0dp" android:minWidth="0dp"/>
+            <Button android:id="@+id/key_j" android:layout_width="0dp" android:layout_height="40dp" android:layout_weight="1" android:text="j" android:textSize="12sp" android:padding="0dp" android:minWidth="0dp"/>
+            <Button android:id="@+id/key_k" android:layout_width="0dp" android:layout_height="40dp" android:layout_weight="1" android:text="k" android:textSize="12sp" android:padding="0dp" android:minWidth="0dp"/>
+            <Button android:id="@+id/key_l" android:layout_width="0dp" android:layout_height="40dp" android:layout_weight="1" android:text="l" android:textSize="12sp" android:padding="0dp" android:minWidth="0dp"/>
+        </LinearLayout>
+
+        <!-- Baris 3 -->
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
+            <Button android:id="@+id/key_shift" android:layout_width="0dp" android:layout_height="40dp" android:layout_weight="1.5" android:text="⇧" android:textSize="12sp" android:padding="0dp" android:minWidth="0dp"/>
+            <Button android:id="@+id/key_z" android:layout_width="0dp" android:layout_height="40dp" android:layout_weight="1" android:text="z" android:textSize="12sp" android:padding="0dp" android:minWidth="0dp"/>
+            <Button android:id="@+id/key_x" android:layout_width="0dp" android:layout_height="40dp" android:layout_weight="1" android:text="x" android:textSize="12sp" android:padding="0dp" android:minWidth="0dp"/>
+            <Button android:id="@+id/key_c" android:layout_width="0dp" android:layout_height="40dp" android:layout_weight="1" android:text="c" android:textSize="12sp" android:padding="0dp" android:minWidth="0dp"/>
+            <Button android:id="@+id/key_v" android:layout_width="0dp" android:layout_height="40dp" android:layout_weight="1" android:text="v" android:textSize="12sp" android:padding="0dp" android:minWidth="0dp"/>
+            <Button android:id="@+id/key_b" android:layout_width="0dp" android:layout_height="40dp" android:layout_weight="1" android:text="b" android:textSize="12sp" android:padding="0dp" android:minWidth="0dp"/>
+            <Button android:id="@+id/key_n" android:layout_width="0dp" android:layout_height="40dp" android:layout_weight="1" android:text="n" android:textSize="12sp" android:padding="0dp" android:minWidth="0dp"/>
+            <Button android:id="@+id/key_m" android:layout_width="0dp" android:layout_height="40dp" android:layout_weight="1" android:text="m" android:textSize="12sp" android:padding="0dp" android:minWidth="0dp"/>
+            <Button android:id="@+id/key_backspace" android:layout_width="0dp" android:layout_height="40dp" android:layout_weight="1.5" android:text="⌫" android:textSize="12sp" android:padding="0dp" android:minWidth="0dp"/>
+        </LinearLayout>
+
+        <!-- Baris 4 -->
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
+            <Button android:id="@+id/key_comma" android:layout_width="0dp" android:layout_height="40dp" android:layout_weight="1" android:text="," android:textSize="12sp" android:padding="0dp" android:minWidth="0dp"/>
+            <Button android:id="@+id/key_space" android:layout_width="0dp" android:layout_height="40dp" android:layout_weight="5" android:text="Spasi" android:textSize="12sp" android:padding="0dp" android:minWidth="0dp"/>
+            <Button android:id="@+id/key_dot" android:layout_width="0dp" android:layout_height="40dp" android:layout_weight="1" android:text="." android:textSize="12sp" android:padding="0dp" android:minWidth="0dp"/>
+            <Button android:id="@+id/key_enter" android:layout_width="0dp" android:layout_height="40dp" android:layout_weight="2" android:text="↵" android:textSize="12sp" android:padding="0dp" android:minWidth="0dp"/>
+        </LinearLayout>
     </LinearLayout>
 </LinearLayout>
