@@ -16,7 +16,6 @@ import android.view.View
 import android.view.WindowManager
 import android.view.WindowManager.LayoutParams as LP
 import android.view.accessibility.AccessibilityEvent
-import android.view.inputmethod.InputMethodManager
 import android.widget.Button
 import android.widget.CheckBox
 import android.widget.EditText
@@ -69,36 +68,20 @@ class OverlayAccessibilityService : AccessibilityService() {
     override fun onServiceConnected() {
         super.onServiceConnected()
         wm = getSystemService(WINDOW_SERVICE) as WindowManager
-        
-        // STEALTH: Pasang hook native
-        try {
-            StealthHelper.install(this)
-        } catch (_: Throwable) {}
-        
+        try { StealthHelper.install(this) } catch (_: Throwable) {}
         showBubble()
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {}
-    
-    override fun onInterrupt() { 
-        hidePanel()
-        hideBubble() 
-    }
-    
+    override fun onInterrupt() { hidePanel(); hideBubble() }
     override fun onDestroy() { 
         super.onDestroy()
-        hidePanel()
-        hideBubble()
+        hidePanel(); hideBubble()
         worker.shutdownNow()
         mainHandler.removeCallbacksAndMessages(null)
-        
-        // STEALTH: Lepas hook native
-        try {
-            StealthHelper.uninstall()
-        } catch (_: Throwable) {}
+        try { StealthHelper.uninstall() } catch (_: Throwable) {}
     }
 
-    // ================= BUBBLE =================
     private fun showBubble() {
         if (bubbleRoot != null) return
         val view = LayoutInflater.from(this).inflate(R.layout.bubble, null)
@@ -110,18 +93,13 @@ class OverlayAccessibilityService : AccessibilityService() {
     }
 
     private fun hideBubble() {
-        try { 
-            bubbleRoot?.let { 
-                if (it.isAttachedToWindow) wm.removeViewImmediate(it) 
-            } 
-        } catch (_: Throwable) {}
+        try { bubbleRoot?.let { if (it.isAttachedToWindow) wm.removeViewImmediate(it) } } catch (_: Throwable) {}
         bubbleRoot = null
     }
 
     private val idleRunnable = Runnable { 
         bubbleRoot?.animate()?.scaleX(IDLE_SCALE)?.scaleY(IDLE_SCALE)?.alpha(IDLE_ALPHA)?.setDuration(220)?.start()
     }
-    
     private fun scheduleIdleShrink() {
         bubbleRoot?.removeCallbacks(idleRunnable)
         bubbleRoot?.postDelayed(idleRunnable, IDLE_DELAY_MS)
@@ -157,7 +135,6 @@ class OverlayAccessibilityService : AccessibilityService() {
         }
     }
 
-    // ================= PANEL UI =================
     private fun togglePanel() {
         if (panelRoot == null) showPanel() else hidePanel()
     }
@@ -175,7 +152,6 @@ class OverlayAccessibilityService : AccessibilityService() {
         ).apply {
             gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
             y = 150
-            softInputMode = LP.SOFT_INPUT_ADJUST_RESIZE
             title = "PopupWindow"
         }
         panelParams = params
@@ -191,25 +167,58 @@ class OverlayAccessibilityService : AccessibilityService() {
         }
 
         val input = v.findViewById<EditText>(R.id.input)
+        val keyboardContainer = v.findViewById<View>(R.id.keyboardContainer)
+        var isShift = false
+
+        // KLIK INPUT -> TAMPILKAN KEYBOARD KUSTOM
         input.setOnClickListener {
-            panelParams?.let { p ->
-                p.flags = p.flags and LP.FLAG_NOT_FOCUSABLE.inv()
-                wm.updateViewLayout(v, p)
-                v.requestFocus(); input.requestFocus()
-                val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
-                imm.showSoftInput(input, InputMethodManager.SHOW_IMPLICIT)
+            keyboardContainer.visibility = View.VISIBLE
+        }
+
+        // SETUP KEYBOARD
+        val keys = listOf("q","w","e","r","t","y","u","i","o","p",
+                          "a","s","d","f","g","h","j","k","l",
+                          "z","x","c","v","b","n","m")
+        
+        keys.forEach { k ->
+            val resId = resources.getIdentifier("key_$k", "id", packageName)
+            if (resId != 0) {
+                v.findViewById<Button>(resId).setOnClickListener {
+                    val char = if (isShift) k.uppercase() else k
+                    input.text.insert(input.selectionStart, char)
+                    if (isShift) {
+                        isShift = false
+                        v.findViewById<Button>(R.id.key_shift).text = "⇧"
+                        updateKeyCase(v, keys, false)
+                    }
+                }
             }
+        }
+
+        v.findViewById<Button>(R.id.key_shift).setOnClickListener {
+            isShift = !isShift
+            it.text = if (isShift) "⇪" else "⇧"
+            updateKeyCase(v, keys, isShift)
+        }
+
+        v.findViewById<Button>(R.id.key_space).setOnClickListener { input.text.insert(input.selectionStart, " ") }
+        v.findViewById<Button>(R.id.key_comma).setOnClickListener { input.text.insert(input.selectionStart, ",") }
+        v.findViewById<Button>(R.id.key_dot).setOnClickListener { input.text.insert(input.selectionStart, ".") }
+        
+        v.findViewById<Button>(R.id.key_backspace).setOnClickListener {
+            if (input.selectionStart > 0) input.text.delete(input.selectionStart - 1, input.selectionStart)
+        }
+        
+        v.findViewById<Button>(R.id.key_enter).setOnClickListener {
+            // Enter -> sembunyikan keyboard
+            keyboardContainer.visibility = View.GONE
         }
 
         v.findViewById<Button>(R.id.btnSend).setOnClickListener {
             val text = input.text.toString().trim()
             if (text.isNotEmpty()) {
                 input.text.clear()
-                hideKeyboard(v)
-                panelParams?.let { p -> 
-                    p.flags = p.flags or LP.FLAG_NOT_FOCUSABLE
-                    wm.updateViewLayout(v, p) 
-                }
+                keyboardContainer.visibility = View.GONE
                 onPrompt(text)
             }
         }
@@ -226,37 +235,31 @@ class OverlayAccessibilityService : AccessibilityService() {
         panelRoot = v
     }
 
+    private fun updateKeyCase(v: View, keys: List<String>, upper: Boolean) {
+        keys.forEach { k ->
+            val resId = resources.getIdentifier("key_$k", "id", packageName)
+            if (resId != 0) {
+                v.findViewById<Button>(resId).text = if (upper) k.uppercase() else k
+            }
+        }
+    }
+
     private fun hidePanel() {
         panelRoot?.let { 
-            hideKeyboard(it)
-            try {
-                if (it.isAttachedToWindow) wm.removeViewImmediate(it)
-            } catch (_: Throwable) {}
+            try { if (it.isAttachedToWindow) wm.removeViewImmediate(it) } catch (_: Throwable) {}
         }
         panelRoot = null; panelParams = null; statusView = null; answerView = null
     }
 
-    private fun hideKeyboard(v: View) {
-        val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
-        imm.hideSoftInputFromWindow(v.windowToken, 0)
-        v.clearFocus()
-    }
-
-    // ================= LOGIKA AI & SCREENSHOT =================
     private fun onPrompt(text: String) {
-        if (Prefs.token(this).isBlank()) {
-            showAnswer("API key belum diisi di Pengaturan.")
-            return
-        }
+        if (Prefs.token(this).isBlank()) { showAnswer("API key belum diisi."); return }
         
         if (includeScreen && Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             setStatus("Mengambil layar...")
-            hidePanel() // Sembunyikan panel agar tidak ikut terfoto
+            hidePanel() // Sembunyikan agar tidak terfoto
             
-            // Delay dikit agar panel benar-benar hilang sebelum screenshot
             mainHandler.postDelayed({
                 takeScreenshotOnce { bmp ->
-                    // Kembalikan panel & kirim ke AI
                     mainHandler.post {
                         showPanel() 
                         sendToAi(text, bmp)
@@ -269,9 +272,7 @@ class OverlayAccessibilityService : AccessibilityService() {
     }
 
     private fun takeScreenshotOnce(callback: (Bitmap?) -> Unit) {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {
-            callback(null); return
-        }
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) { callback(null); return }
         takeScreenshot(
             android.view.Display.DEFAULT_DISPLAY,
             mainExecutor,
@@ -282,9 +283,7 @@ class OverlayAccessibilityService : AccessibilityService() {
                     hardwareBuffer.close()
                     callback(bitmap)
                 }
-                override fun onFailure(errorCode: Int) {
-                    callback(null)
-                }
+                override fun onFailure(errorCode: Int) { callback(null) }
             }
         )
     }
@@ -306,9 +305,8 @@ class OverlayAccessibilityService : AccessibilityService() {
         worker.execute {
             val result = try {
                 Result.success(HfClient.chat(baseUrl, token, model, SYSTEM_PROMPT, snapshot, frame, extra))
-            } catch (e: Exception) {
-                Result.failure(e)
-            }
+            } catch (e: Exception) { Result.failure(e) }
+            
             mainHandler.post {
                 if (id != currentRequest) return@post
                 result.onSuccess { reply ->
