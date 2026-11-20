@@ -170,12 +170,10 @@ class OverlayAccessibilityService : AccessibilityService() {
         val keyboardContainer = v.findViewById<View>(R.id.keyboardContainer)
         var isShift = false
 
-        // KLIK INPUT -> TAMPILKAN KEYBOARD KUSTOM
         input.setOnClickListener {
             keyboardContainer.visibility = View.VISIBLE
         }
 
-        // SETUP KEYBOARD
         val keys = listOf("q","w","e","r","t","y","u","i","o","p",
                           "a","s","d","f","g","h","j","k","l",
                           "z","x","c","v","b","n","m")
@@ -195,9 +193,10 @@ class OverlayAccessibilityService : AccessibilityService() {
             }
         }
 
-        v.findViewById<Button>(R.id.key_shift).setOnClickListener {
+        // PERBAIKAN: Cast `it` menjadi Button sebelum memanggil .text
+        v.findViewById<Button>(R.id.key_shift).setOnClickListener { btn ->
             isShift = !isShift
-            it.text = if (isShift) "⇪" else "⇧"
+            (btn as Button).text = if (isShift) "⇪" else "⇧"
             updateKeyCase(v, keys, isShift)
         }
 
@@ -210,7 +209,6 @@ class OverlayAccessibilityService : AccessibilityService() {
         }
         
         v.findViewById<Button>(R.id.key_enter).setOnClickListener {
-            // Enter -> sembunyikan keyboard
             keyboardContainer.visibility = View.GONE
         }
 
@@ -256,7 +254,7 @@ class OverlayAccessibilityService : AccessibilityService() {
         
         if (includeScreen && Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             setStatus("Mengambil layar...")
-            hidePanel() // Sembunyikan agar tidak terfoto
+            hidePanel()
             
             mainHandler.postDelayed({
                 takeScreenshotOnce { bmp ->
