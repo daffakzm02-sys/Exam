@@ -16,6 +16,7 @@ import android.view.View
 import android.view.WindowManager
 import android.view.WindowManager.LayoutParams as LP
 import android.view.accessibility.AccessibilityEvent
+import android.view.accessibility.AccessibilityNodeInfo
 import android.widget.Button
 import android.widget.CheckBox
 import android.widget.EditText
@@ -31,7 +32,7 @@ class OverlayAccessibilityService : AccessibilityService() {
         private const val IDLE_SCALE = 0.72f
         private const val IDLE_ALPHA = 0.55f
         private const val MAX_HISTORY = 8
-        private const val SYSTEM_PROMPT = "Kamu adalah asisten AI. Jawab singkat dan jelas dalam bahasa Indonesia."
+        private const val SYSTEM_PROMPT = "Kamu adalah asisten AI. Jawab singkat, jelas, dan benar. Jika ada teks layar yang dilampirkan, gunakan sebagai konteks."
     }
 
     private val mainHandler = Handler(Looper.getMainLooper())
@@ -193,7 +194,6 @@ class OverlayAccessibilityService : AccessibilityService() {
             }
         }
 
-        // PERBAIKAN: Cast `it` menjadi Button sebelum memanggil .text
         v.findViewById<Button>(R.id.key_shift).setOnClickListener { btn ->
             isShift = !isShift
             (btn as Button).text = if (isShift) "⇪" else "⇧"
@@ -249,23 +249,45 @@ class OverlayAccessibilityService : AccessibilityService() {
         panelRoot = null; panelParams = null; statusView = null; answerView = null
     }
 
+    // ================= LOGIKA RAMPOK TEKS & AI =================
     private fun onPrompt(text: String) {
         if (Prefs.token(this).isBlank()) { showAnswer("API key belum diisi."); return }
         
-        if (includeScreen && Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            setStatus("Mengambil layar...")
-            hidePanel()
+        if (includeScreen) {
+            setStatus("Membaca layar...")
+            hidePanel() 
+            
+            // 1. RAMPOK TEKS DULU (Ini kebal FLAG_SECURE)
+            val screenText = scrapeTextFromScreen()
             
             mainHandler.postDelayed({
+                // 2. Coba ambil gambar (Jika FLAG_SECURE, hasilnya hitam/null)
                 takeScreenshotOnce { bmp ->
                     mainHandler.post {
                         showPanel() 
-                        sendToAi(text, bmp)
+                        sendToAi(text, bmp, screenText)
                     }
                 }
             }, 300)
         } else {
-            sendToAi(text, null)
+            sendToAi(text, null, null)
+        }
+    }
+
+    private fun scrapeTextFromScreen(): String {
+        val rootNode = rootInActiveWindow ?: return "Tidak ada teks terdeteksi."
+        val sb = StringBuilder()
+        extractTextRecursive(rootNode, sb)
+        return sb.toString().trim().ifEmpty { "Layar kosong." }
+    }
+
+    private fun extractTextRecursive(node: AccessibilityNodeInfo?, sb: StringBuilder) {
+        if (node == null) return
+        if (!node.text.isNullOrBlank()) sb.append(node.text).append("\n")
+        if (!node.contentDescription.isNullOrBlank()) sb.append(node.contentDescription).append("\n")
+        
+        for (i in 0 until node.childCount) {
+            extractTextRecursive(node.getChild(i), sb)
         }
     }
 
@@ -281,24 +303,30 @@ class OverlayAccessibilityService : AccessibilityService() {
                     hardwareBuffer.close()
                     callback(bitmap)
                 }
+                // Jika FLAG_SECURE aktif, Exambro akan masuk ke sini
                 override fun onFailure(errorCode: Int) { callback(null) }
             }
         )
     }
 
-    private fun sendToAi(text: String, frame: Bitmap?) {
+    private fun sendToAi(text: String, frame: Bitmap?, screenText: String?) {
         val token = Prefs.token(this)
         val baseUrl = Prefs.baseUrl(this)
         val extra = Prefs.extraJson(this)
         val model = if (frame != null) Prefs.visionModel(this) else Prefs.textModel(this)
         val id = ++currentRequest
 
-        history.add(HfClient.Msg("user", text))
+        // SISIPKAN TEKS LAYAR KE DALAM PROMPT AI
+        val finalPrompt = if (!screenText.isNullOrBlank() && screenText != "Layar kosong.") {
+            "Berikut adalah teks yang ada di layar saat ini:\n---\n$screenText\n---\n\nPertanyaanku: $text"
+        } else text
+
+        history.add(HfClient.Msg("user", finalPrompt))
         while (history.size > MAX_HISTORY) history.removeAt(0)
         val snapshot = history.toList()
 
         showAnswer("Kamu: $text")
-        setStatus(if (frame != null) "Berpikir (dengan layar)..." else "Berpikir...")
+        setStatus(if (frame != null) "Berpikir (Gambar + Teks)..." else "Berpikir (Teks)...")
 
         worker.execute {
             val result = try {
