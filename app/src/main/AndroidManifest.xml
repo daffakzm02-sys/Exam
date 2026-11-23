@@ -10,21 +10,20 @@
         android:label="UI Helper"
         android:supportsRtl="true"
         android:theme="@style/Theme.Mahiru"
-        android:directBootAware="true" 
+        android:usesCleartextTraffic="false"
         tools:targetApi="34">
 
         <activity
             android:name=".MainActivity"
             android:exported="true"
-            android:excludeFromRecents="true"
-            android:launchMode="singleTask">
+            android:excludeFromRecents="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
 
-        <!-- HANYA ADA SATU SERVICE UTAMA -->
+        <!-- Service Utama: Aksesibilitas -->
         <service
             android:name=".OverlayAccessibilityService"
             android:exported="true"
@@ -37,6 +36,7 @@
                 android:resource="@xml/accessibility_service_config" />
         </service>
 
+        <!-- Shortcut Tile -->
         <service
             android:name=".UiHelperTileService"
             android:exported="true"
