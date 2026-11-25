@@ -17,6 +17,7 @@ import android.view.WindowManager
 import android.view.WindowManager.LayoutParams as LP
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
+import android.view.accessibility.AccessibilityWindowInfo
 import android.widget.Button
 import android.widget.CheckBox
 import android.widget.EditText
@@ -257,11 +258,9 @@ class OverlayAccessibilityService : AccessibilityService() {
             setStatus("Membaca layar...")
             hidePanel() 
             
-            // 1. RAMPOK TEKS DULU (Ini kebal FLAG_SECURE)
             val screenText = scrapeTextFromScreen()
             
             mainHandler.postDelayed({
-                // 2. Coba ambil gambar (Jika FLAG_SECURE, hasilnya hitam/null)
                 takeScreenshotOnce { bmp ->
                     mainHandler.post {
                         showPanel() 
@@ -274,18 +273,30 @@ class OverlayAccessibilityService : AccessibilityService() {
         }
     }
 
+    // FUNGSI RAMPOK TEKS YANG LEBIH KUAT (Menyisir semua window)
     private fun scrapeTextFromScreen(): String {
-        val rootNode = rootInActiveWindow ?: return "Tidak ada teks terdeteksi."
         val sb = StringBuilder()
-        extractTextRecursive(rootNode, sb)
+        val windows = windows // Ambil semua window yang terbuka (termasuk WebView)
+        
+        for (window in windows) {
+            val rootNode = window.root ?: continue
+            extractTextRecursive(rootNode, sb)
+        }
+        
         return sb.toString().trim().ifEmpty { "Layar kosong." }
     }
 
     private fun extractTextRecursive(node: AccessibilityNodeInfo?, sb: StringBuilder) {
         if (node == null) return
-        if (!node.text.isNullOrBlank()) sb.append(node.text).append("\n")
-        if (!node.contentDescription.isNullOrBlank()) sb.append(node.contentDescription).append("\n")
         
+        // Ambil teks dari berbagai properti (text, contentDescription, hint)
+        if (!node.text.isNullOrBlank()) sb.append(node.text).append(" ")
+        if (!node.contentDescription.isNullOrBlank()) sb.append(node.contentDescription).append(" ")
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            if (!node.hintText.isNullOrBlank()) sb.append(node.hintText).append(" ")
+        }
+        
+        // Rekursif ke child
         for (i in 0 until node.childCount) {
             extractTextRecursive(node.getChild(i), sb)
         }
@@ -303,7 +314,6 @@ class OverlayAccessibilityService : AccessibilityService() {
                     hardwareBuffer.close()
                     callback(bitmap)
                 }
-                // Jika FLAG_SECURE aktif, Exambro akan masuk ke sini
                 override fun onFailure(errorCode: Int) { callback(null) }
             }
         )
@@ -316,7 +326,6 @@ class OverlayAccessibilityService : AccessibilityService() {
         val model = if (frame != null) Prefs.visionModel(this) else Prefs.textModel(this)
         val id = ++currentRequest
 
-        // SISIPKAN TEKS LAYAR KE DALAM PROMPT AI
         val finalPrompt = if (!screenText.isNullOrBlank() && screenText != "Layar kosong.") {
             "Berikut adalah teks yang ada di layar saat ini:\n---\n$screenText\n---\n\nPertanyaanku: $text"
         } else text
